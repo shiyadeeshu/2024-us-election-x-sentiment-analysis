@@ -1,0 +1,240 @@
+import pandas as pd
+import re
+
+# List of chunk files in part_1 (manually constructed based on GitHub structure)
+chunk_files = [f"https://raw.githubusercontent.com/sinking8/usc-x-24-us-election/main/part_37/october_chunk_{i}.csv.gz" for i in range(1, 4)]
+
+# Load and merge all chunk files
+df_list = [pd.read_csv(file, compression="gzip") for file in chunk_files]
+df = pd.concat(df_list, ignore_index=True)
+
+# Display dataset info
+print(df.info())
+print(df.head())
+
+# **Step 1: Remove unnecessary columns**
+# Specify the columns you want to drop
+columns_to_remove = ['id', 'geo']  # Replace with actual column names
+df.drop(columns=columns_to_remove, inplace=True, errors='ignore')
+
+# **Step 2: Remove URLs and links**
+# Define a function to clean text
+def clean_text(text):
+    if isinstance(text, str):
+        # Remove URLs using regex
+        text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
+        return text.strip()
+    return text
+
+# Apply the cleaning function to relevant columns (e.g., 'tweet_text')
+df['text'] = df['text'].apply(clean_text)
+
+# Display the cleaned dataset info
+print(df.info())
+print(df.head())
+import pandas as pd
+import re
+from datetime import datetime
+
+# Assuming df is already loaded as shown in your previous code snippets
+
+# Convert 'epoch' to datetime and then to date
+df['date'] = pd.to_datetime(df['epoch'], unit='s').dt.date
+
+# Columns to remove
+columns_to_remove = [
+    'Unnamed: 0', 'type', 'id', 'username', 'url', 'epoch', 'media',
+    'retweetedTweet', 'retweetedTweetID', 'retweetedUserID', 'id_str', 'lang',
+    'rawContent', 'replyCount', 'retweetCount', 'quoteCount',
+    'conversationId', 'conversationIdStr', 'hashtags', 'mentionedUsers',
+    'links', 'viewCount', 'quotedTweet', 'in_reply_to_screen_name',
+    'in_reply_to_status_id_str', 'in_reply_to_user_id_str', 'location',
+    'cash_app_handle', 'user', 'in_reply_to_user_id_str.1', 'location.1',
+    'cash_app_handle.1', 'user.1'
+]
+
+# Drop the columns, keeping 'likeCount'
+df.drop(columns=columns_to_remove, inplace=True, errors='ignore')
+
+# Clean URLs and links from the text column
+def clean_text(text):
+    if isinstance(text, str):
+        text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)  # Remove URLs
+        text = re.sub(r'@\w+', '', text)  # Remove mentions
+        text = re.sub(r'#\w+', '', text)  # Remove hashtags
+        text = text.strip()
+        return text
+    return text
+
+df['text'] = df['text'].apply(clean_text)
+
+# Display the cleaned dataframe info and the first few rows
+print(df.info())
+print(df.head())
+import pandas as pd
+import re
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import nltk
+
+# Download VADER lexicon if you haven't already
+try:
+    sid = SentimentIntensityAnalyzer()
+except LookupError:
+    nltk.download('vader_lexicon')
+    sid = SentimentIntensityAnalyzer()
+
+# Assuming df is already loaded and cleaned as in the previous steps
+
+# Function to get VADER sentiment scores
+def get_vader_sentiment(text):
+    if isinstance(text, str):
+        scores = sid.polarity_scores(text)
+        return scores
+    return {'neg': 0.0, 'neu': 0.0, 'pos': 0.0, 'compound': 0.0}
+
+# Apply VADER sentiment analysis to the 'text' column
+df['vader_scores'] = df['text'].apply(get_vader_sentiment)
+
+# Separate compound score into a new column
+df['compound'] = df['vader_scores'].apply(lambda x: x['compound'])
+
+# Define sentiment labels based on compound score
+def categorize_sentiment(compound_score):
+    if compound_score >= 0.05:
+        return 'Positive'
+    elif compound_score <= -0.05:
+        return 'Negative'
+    else:
+        return 'Neutral'
+
+# Apply sentiment categorization
+df['sentiment'] = df['compound'].apply(categorize_sentiment)
+
+# Display the dataframe with sentiment analysis results
+print(df.head())
+print(df.info())
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+# Download necessary NLTK resources
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+nltk.download('stopwords')
+
+# Initialize stop words and lemmatizer
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+
+# Function for tokenization & lemmatization
+def preprocess_text(text):
+    if isinstance(text, str):
+        # Tokenize text
+        tokens = word_tokenize(text)
+        # Convert to lowercase, remove stopwords, and apply lemmatization
+        processed_tokens = [lemmatizer.lemmatize(token.lower()) for token in tokens if token.isalpha() and token.lower() not in stop_words]
+        return " ".join(processed_tokens)  # Return processed text as a string
+    return text
+
+# Apply preprocessing to the 'text' column
+df['cleaned_text'] = df['text'].apply(preprocess_text)
+
+# Display the cleaned dataframe info and first few rows
+print(df[['text', 'cleaned_text']].head())
+import pandas as pd
+import re
+import nltk
+import gensim
+from gensim import corpora
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import CountVectorizer
+
+# ✅ Download required NLTK datasets
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('vader_lexicon')
+
+# ✅ Initialize NLP tools
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+sid = SentimentIntensityAnalyzer()
+
+# ✅ **Preprocess text**
+def clean_text(text):
+    if isinstance(text, str):
+        text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)  # Remove URLs
+        text = re.sub(r'@\w+', '', text)  # Remove mentions
+        text = re.sub(r'#\w+', '', text)  # Remove hashtags
+        text = re.sub(r'[^a-zA-Z\s]', '', text)  # Keep only words
+        text = text.strip()
+        return text
+    return text
+
+df['text'] = df['text'].astype(str)
+df['text'] = df['text'].apply(clean_text)
+
+# ✅ **Tokenization, Lemmatization, Stop Word Removal**
+def process_text(text):
+    tokens = word_tokenize(text.lower())  # Convert to lowercase
+    tokens = [token for token in tokens if token not in stop_words and token.isalpha()]  # Remove stop words
+    tokens = [lemmatizer.lemmatize(token) for token in tokens]  # Lemmatization
+    return tokens
+
+df['processed_text'] = df['text'].apply(process_text)
+
+# ✅ **LDA Topic Modeling**
+# Create dictionary and corpus
+dictionary = corpora.Dictionary(df['processed_text'])
+corpus = [dictionary.doc2bow(text) for text in df['processed_text']]
+
+# Train LDA model
+lda_model = gensim.models.LdaModel(corpus, num_topics=2, id2word=dictionary, passes=10)
+
+# ✅ **Assign topics (Trump or Harris)**
+def classify_topic(text):
+    bow = dictionary.doc2bow(text)
+    topic_distribution = lda_model.get_document_topics(bow)
+
+    if len(topic_distribution) > 0:
+        topic = max(topic_distribution, key=lambda x: x[1])[0]  # Get dominant topic
+        return "Trump" if topic == 0 else "Harris"
+    return "Unknown"
+
+df['topic'] = df['processed_text'].apply(classify_topic)
+
+# ✅ **Apply VADER sentiment analysis**
+df['compound'] = df['text'].apply(lambda x: sid.polarity_scores(x)['compound'])
+
+# ✅ **Categorize sentiment**
+def categorize_sentiment(compound_score):
+    if compound_score >= 0.05:
+        return 'Positive'
+    elif compound_score <= -0.05:
+        return 'Negative'
+    else:
+        return 'Neutral'
+
+df['sentiment'] = df['compound'].apply(categorize_sentiment)
+
+# ✅ Ensure proper topic filtering
+trump_sentiment = df[df['topic'].str.contains(r'\b(trump|donald trump|donald)\b', case=False, na=False)]['compound'].mean()
+harris_sentiment = df[df['topic'].str.contains(r'\b(harris|kamala harris|kamala)\b', case=False, na=False)]['compound'].mean()
+
+# ✅ Predict Winner
+if trump_sentiment > harris_sentiment:
+    winner = "Trump"
+elif harris_sentiment > trump_sentiment:
+    winner = "Harris"
+else:
+    winner = "Too Close to Call"
+
+# ✅ Print Results
+print("\n🔵 Harris Sentiment Score:", harris_sentiment)
+print("🔴 Trump Sentiment Score:", trump_sentiment)
+print("\n🏆 Predicted Winner:", winner)
